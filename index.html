@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Ranker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
+
+        body {
+            text-align: center;
+            font-family: 'Montserrat', sans-serif;
+            background: url('https://i.imgur.com/K07eUtQ.png');
+            background-size: 400px 400px;
+            background-position: 0 100px; /* Adjust 100px to the desired vertical offset */
+            animation: scrollBackground 20s linear infinite;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        @keyframes scrollBackground {
+            from {
+                background-position: 0 100px;
+            }
+            to {
+                background-position: 400px 500px; /* Match the background-size */
+            }
+        }
+
+        .header {
+            background-color: #ffde59;
+            padding: 20px;
+            font-size: 2em;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 5px solid #ff6f61;
+            text-align: left;
+            padding-left: 20px;
+        }
+
+        .image-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 50px;
+            gap: 20px;
+        }
+
+        .image-box {
+            background: #fff;
+            border: 5px solid #ff6f61;
+            padding: 10px;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .image-box:hover {
+            transform: scale(1.05);
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        .button {
+            background-color: #ff6f61;
+            border: none;
+            color: #fff;
+            padding: 15px 30px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 1em;
+            margin: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        .button:hover {
+            background-color: #ffde59;
+            color: #333;
+            transform: translateY(-2px);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            background-color: #ff6f61;
+            border: none;
+            color: #fff;
+            padding: 15px 30px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 1em;
+            margin: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        .file-label:hover {
+            background-color: #ffde59;
+            color: #333;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">Image Ranker</div>
+    <div class="image-container">
+        <div class="image-box">
+            <img id="image1" src="" alt="Image 1" onclick="selectImage('image1')">
+        </div>
+        <div class="image-box">
+            <img id="image2" src="" alt="Image 2" onclick="selectImage('image2')">
+        </div>
+    </div>
+    <div class="controls">
+        <button class="button" onclick="saveScoresToFile()">Save Scores</button>
+        <label class="file-label" for="fileInput">Load Scores</label>
+        <input type="file" id="fileInput" onchange="loadScoresFromFile(event)">
+    </div>
+    <script>
+        const imageDir = 'imgs/';
+        const imageCount = 1068; // Total number of images
+        let images = [];
+        let scores = {};
+
+        // Dynamically generate the list of image filenames
+        for (let i = 1; i <= imageCount; i++) {
+            let imageName = `image(${String(i).padStart(4, '0')}).png`;
+            images.push(imageName);
+            scores[imageName] = 0; // Initialize scores for all images
+        }
+
+        // Load scores from localStorage if available
+        if (localStorage.getItem('scores')) {
+            scores = JSON.parse(localStorage.getItem('scores'));
+        }
+
+        let currentImage1 = "";
+        let currentImage2 = "";
+
+        // Function to randomly select an image
+        function getRandomImage() {
+            return images[Math.floor(Math.random() * images.length)];
+        }
+
+        // Function to load two images for comparison
+        function loadImages() {
+            currentImage1 = getRandomImage();
+            currentImage2 = getRandomImage();
+
+            while (currentImage1 === currentImage2) {
+                currentImage2 = getRandomImage();
+            }
+
+            console.log("Image 1 path: ", imageDir + currentImage1);
+            console.log("Image 2 path: ", imageDir + currentImage2);
+
+            document.getElementById('image1').src = imageDir + currentImage1;
+            document.getElementById('image2').src = imageDir + currentImage2;
+        }
+
+        // Function to handle image selection
+        function selectImage(imageId) {
+            if (imageId === 'image1') {
+                scores[currentImage1]++;
+            } else {
+                scores[currentImage2]++;
+            }
+
+            // Save scores to localStorage
+            localStorage.setItem('scores', JSON.stringify(scores));
+
+            // Load new images
+            loadImages();
+        }
+
+        // Function to save scores to a CSV file with File System Access API
+        async function saveScoresToFile() {
+            let csvContent = "Image,Score\n";
+            for (let image in scores) {
+                csvContent += `${image},${scores[image]}\n`;
+            }
+
+            const opts = {
+                types: [{
+                    description: 'CSV Files',
+                    accept: {'text/csv': ['.csv']}
+                }]
+            };
+
+            try {
+                const handle = await window.showSaveFilePicker(opts);
+                const writable = await handle.createWritable();
+                await writable.write(csvContent);
+                await writable.close();
+                alert('File saved successfully');
+            } catch (err) {
+                console.error('Error saving file:', err);
+            }
+        }
+
+        // Function to load scores from a CSV file
+        function loadScoresFromFile(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                lines.forEach(line => {
+                    const [image, score] = line.split(',');
+                    if (image && score && image !== 'Image') {
+                        scores[image] = parseInt(score);
+                    }
+                });
+                localStorage.setItem('scores', JSON.stringify(scores)); // Save to localStorage
+                loadImages(); // Load initial images after loading scores
+            };
+            reader.readAsText(file);
+        }
+
+        // Load initial images on page load
+        window.onload = loadImages;
+    </script>
+</body>
+</html>
